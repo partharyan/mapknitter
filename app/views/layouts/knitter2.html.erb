@@ -1,0 +1,190 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN"
+   "http://www.w3.org/TR/html4/strict.dtd">
+
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <%=raw csrf_meta_tags %>
+  <title>MapKnitter: <%= @map[:name] ? @map[:name] : "New map" %></title>
+  <meta name="description" content="<%= @map.description.gsub('"',"'") if @map.description %>" />  
+  <meta name="viewport" content="width=320, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
+
+  <link rel="stylesheet" href="/lib/fontawesome/css/font-awesome.min.css"/>
+  <link rel="stylesheet" href="/lib/leaflet/dist/leaflet.css"/>
+
+  <%= stylesheet_link_tag 'application' %>
+  <%= javascript_include_tag 'application' %>
+  <%= javascript_include_tag 'maps' %>
+  <%= javascript_include_tag 'uploads' %>
+  <% if @annotations %><%= javascript_include_tag 'annotations' %><% end %>
+
+  <script src='//api.tiles.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.3.1/leaflet-omnivore.min.js' async defer></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAxlBXzYwdeaOMKZgx_UNBp2qBtdD0L_9g"></script>
+  <script src='https://unpkg.com/leaflet.gridlayer.googlemutant@0.7.0/Leaflet.GoogleMutant.js'></script>
+  <script src='/lib/image-sequencer/dist/image-sequencer.js'></script>
+
+</head>
+<body>
+
+  <div class="modal modal-welcome">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          <h3 class="modal-title">Looks like this is a new map</h3>
+        </div>
+        <div class="modal-body">
+          <p>
+            This map does not yet have any images. If you're new to MapKnitter, try <a target="_blank" href="/">watching the tutorial video on the front page</a> for a crash course in how to make a map. 
+          </p>
+
+          <p><img src="/images/drag-drop.png" /></p>
+
+          <p>
+            To begin, <b>simply drag images onto the map</b> or click the <code><i class="fa fa-upload"></i> <b>Upload</b></code> button in the left sidebar. 
+          </p>
+          <hr />
+          <p>
+            Where can you find aerial images? <a href="//publiclab.org/wiki/balloon-mapping">Take them yourself</a> with a camera on a balloon or kite, or out the window of an airplane. 
+          </p>
+        </div>
+        <div class="modal-footer">
+          <center><button type="button" class="btn btn-lg btn-primary" data-dismiss="modal">Begin</button></center>
+        </div>
+      </div><!-- /.modal-content -->
+    </div><!-- /.modal-dialog -->
+  </div><!-- /.modal -->
+
+  <% if params[:annotations] # legacy %>
+    <%= render :partial => "map/annotations" %>
+  <% end %>
+
+  <div id="knitter-map-pane"<% if @embed %> style="width:100%;max-width:none;"<% end %>>
+
+  <% unless @embed %><a class="sidebar-toggle sidebar-toggle-tab"><i class="fa fa-chevron-left"></i></a><% end %>
+  </div>
+
+  <% unless @embed %>
+  <div class="sidebar">
+    <%= render :partial => 'layouts/header' %>
+    <div class="sidebar-wrap">
+      <div class="sidebar-inner-wrap">
+        <div class="sidebar-header"><%= yield :title %></div> <% if @map.new_record? %>
+          <%= yield %>
+        <% else %>
+          <div class="sidebar-content-wrap">
+            <!-- Toolbar for uploading and viewing images and exporting the map. -->
+            <div class="btn-group btn-group-justified sidebar-buttons">
+              <!-- Upload images -->
+              <div class="btn-group">
+                <button class="btn btn-default" title="Upload images" type"button" data-toggle="modal" data-target="#uploadModal" onClick="$('#map-images-tab').tab('show')">
+                  <span class="fa fa-upload"></span> 
+                  <span class="hidden-xs">Upload</span>
+                </button>
+              </div>
+
+              <!-- Write a research note on Public Lab -->
+              <div class="btn-group">
+                <a target="_blank" class="btn btn-default" title="Post a research note on Public Lab" href="//publiclab.org/post?title=MapKnitter map of <%= @map.name %>&tags=lat:<%= @map.lat %>,lon:<%= @map.lon %>,mapknitter&body=%3Ciframe%20src=%22https://mapknitter.org/embed/<%= @map.slug %>%22%20style=%22border:none%22%20width=%22100%25%22%20height=%22400px%22%3E%3C/iframe%3E%3Cbr /%3E%3Cbr /%3E<%= @map.description %>%3Cbr /%3Ehttps://mapknitter.org/embed/<%= @map.slug %>">
+                  <span class="fa fa-file"></span> 
+                  <span class="hidden-xs">Post</span>
+                </a>
+              </div>
+
+              <!-- Export map -->
+              <div class="dropdown btn-group">
+                <button class="btn btn-default dropdown-toggle" title="Export map" type="button"  data-toggle="dropdown">
+                  <span class="fa fa-download"></span> 
+                  <span class="hidden-xs">Download</span>
+                  <span class="caret"></span>              
+                </button>
+                <ul class="dropdown-menu dropdown-menu-right map-exports" role="menu">
+                  <%= render :partial => 'maps/exports' %>
+                </ul>
+              </div>
+            </div>
+
+            <div class="sidebar-tabs">
+
+              <!-- Navigation tabs -->
+              <ul class="nav nav-tabs" role="tablist">
+                <li class="active"><a href="#map-details-container" role="tab" data-toggle="tab">About</a></li>
+    <li><a id="map-images-tab" href="#map-images-container" role="tab" data-toggle="tab">
+                  <span class="hidden-xs">Images</span>
+                  <span class="visible-xs"><i class="fa fa-image"></i></span>
+                </a></li>
+                <li><a href="#map-editing-container" role="tab" data-toggle="tab">
+                  <span class="hidden-xs">Annotate</span>
+                  <span class="visible-xs"><i class="fa fa-map-marker"></i></span>
+                </a></li>
+                <li><a href="#map-exports-container" role="tab" data-toggle="tab">Export</a></li>
+                <li class="hidden-xs"><a class="chat-btn" href="#chat" role="tab" data-toggle="tab">Chat</a></li>
+              </ul>
+
+              <!-- Tabbed panes -->
+              <div class="tab-content sidebar-content">
+                <div class="tab-pane active" id="map-details-container">
+
+                  <div class="visible-xs">
+                    <p style="text-align:center;">
+                     <a class="btn btn-primary btn-lg sidebar-toggle">View map <i class="fa fa-chevron-circle-right"></i></a>
+                    </p>
+                    <hr />
+                  </div>
+
+                  <%= yield :details %>
+                </div>
+                <div class="tab-pane" id="map-images-container">
+                  <%= yield :images unless @map.warpables.empty? %>
+                </div>
+                <div class="tab-pane" id="map-editing-container">
+                  <%= render :partial => "sidebar_annotations" %>
+                </div>
+                <div class="tab-pane" id="map-exports-container">
+                  <%= render :partial => "sidebar_exports" %>
+                </div>
+                <div class="tab-pane" id="chat">
+                    <a style="margin-right:4px;" class="pull-right btn btn-small" href="https://webchat.oftc.net/?channels=publiclab<% if current_user %>&nick=<%= current_user.login %><% end %>" target="_blank">pop out</a>
+                    <p class="popover-title">Public Lab chatroom</p>
+                    <script>login = '<%= current_user.login if logged_in? %>'</script>
+                </div>
+              </div>  
+
+            </div><!-- .sidebar-tabs -->
+          </div><!-- .sidebar-content -->
+        <% end %>
+      </div><!-- .sidebar-inner-wrap -->
+    </div><!-- .sidebar-wrap -->
+  </div><!-- .sidebar -->
+
+  <%= render :partial => "/images/new" unless params[:action] == 'new' %>
+  <% end %>
+
+  <script>
+    var map
+    (function(){
+      window.mapKnitter = new MapKnitter.Map({
+        latlng:     L.latLng(<%= @map.lat %>, <%= @map.lon %>),
+        zoom:       <%= @map.zoom %>,
+        readOnly:   <%= @embed == true || @annotations == true %>,
+        logged_in:   <%= logged_in? == true %>,
+        anonymous:   <%= @map.anonymous? == true %>,
+        warpablesUrl:   "<%= url_for([@map, :warpables])+'.json' unless @map.warpables.empty? %>"
+      });
+      <% if @map.warpables.empty? && params[:action] == "show" %>
+        $('.modal-welcome').modal()
+      <% end %>
+     })();
+  </script>  
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+   
+    ga('create', 'UA-7636025-1', 'auto');
+    ga('send', 'pageview');
+ 
+  </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+<b><span id="comments-number"><%= @map.comments.length %></span> Comments</b>
+<div id="comments">
+  <% @map.comments.each do |comment| %>
+    <%= render :partial => "comments/comment", :locals => {:comment => comment } %>
+  <% end %>
+</div>
